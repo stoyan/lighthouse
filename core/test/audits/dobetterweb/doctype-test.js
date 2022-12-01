@@ -32,6 +32,24 @@ describe('DOBETTERWEB: doctype audit', () => {
         .toBeDisplayString('Document contains a doctype that triggers quirks-mode');
   });
 
+  it('fails when document is in limited-quirks-mode', () => {
+    const auditResult = Audit.audit({
+      // eg `<!DOCTYPE html foo>`. https://github.com/GoogleChrome/lighthouse/issues/10030
+      Doctype: {
+        name: 'html',
+        publicId: '',
+        systemId: '',
+        documentCompatMode: 'BackCompat',
+      },
+      InspectorIssues: {
+        quirksModeIssue: [{isLimitedQuirksMode: true}],
+      },
+    });
+    assert.equal(auditResult.score, 0);
+    expect(auditResult.explanation)
+        .toBeDisplayString('Document contains a doctype that triggers limited-quirks-mode');
+  });
+
   it('fails when the value of the name attribute is a value other than "html"', () => {
     const auditResult = Audit.audit({
       Doctype: {
@@ -72,10 +90,11 @@ describe('DOBETTERWEB: doctype audit', () => {
     expect(auditResult.explanation).toBeDisplayString('Expected systemId to be an empty string');
   });
 
-  it('succeeds when document contains a doctype, and the name value is "html"', () => {
+  // eslint-disable-next-line max-len
+  it('succeeds when document is CSS1Compat, did not detect limit-quirks-mode, and regardless of doctype values seen', () => {
     const auditResult = Audit.audit({
       Doctype: {
-        name: 'html',
+        name: '',
         publicId: '',
         systemId: '',
         documentCompatMode: 'CSS1Compat',

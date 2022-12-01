@@ -37,8 +37,8 @@ describe('DOBETTERWEB: doctype audit', () => {
       // eg `<!DOCTYPE html foo>`. https://github.com/GoogleChrome/lighthouse/issues/10030
       Doctype: {
         name: 'html',
-        publicId: '',
-        systemId: '',
+        publicId: '-//W3C//DTD HTML 4.01 Transitional//EN',
+        systemId: 'http://www.w3.org/TR/html4/loose.dtd',
         documentCompatMode: 'BackCompat',
       },
       InspectorIssues: {

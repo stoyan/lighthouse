@@ -36,11 +36,9 @@ beforeEach(() => {
   storageMock.getImportantStorageWarning.mockReset();
 });
 
-afterEach(() => {
-  timers.useRealTimers();
-});
-
 describe('.prepareThrottlingAndNetwork()', () => {
+  after(() => timers.dispose());
+
   it('sets throttling appropriately', async () => {
     await prepare.prepareThrottlingAndNetwork(
       sessionMock.asSession(),
@@ -153,6 +151,8 @@ describe('.prepareThrottlingAndNetwork()', () => {
 });
 
 describe('.prepareTargetForIndividualNavigation()', () => {
+  after(() => timers.dispose());
+
   it('clears storage when not disabled', async () => {
     await prepare.prepareTargetForIndividualNavigation(
       sessionMock.asSession(),
@@ -210,6 +210,8 @@ describe('.prepareTargetForIndividualNavigation()', () => {
 });
 
 describe('.prepareTargetForNavigationMode()', () => {
+  after(() => timers.dispose());
+
   let driverMock = createMockDriver();
 
   beforeEach(() => {
@@ -263,6 +265,7 @@ describe('.prepareTargetForNavigationMode()', () => {
 
   it('enables async stacks on every main frame navigation', async () => {
     timers.useFakeTimers();
+    after(() => timers.dispose());
 
     sessionMock.sendCommand
       .mockResponse('Debugger.enable')
@@ -329,6 +332,7 @@ describe('.prepareTargetForNavigationMode()', () => {
 
   it('handle javascript dialogs automatically', async () => {
     timers.useFakeTimers();
+    after(() => timers.dispose());
 
     sessionMock.sendCommand.mockResponse('Page.handleJavaScriptDialog');
     sessionMock.on.mockEvent('Page.javascriptDialogOpening', {type: 'confirm'});

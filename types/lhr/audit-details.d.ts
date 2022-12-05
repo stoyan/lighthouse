@@ -87,6 +87,7 @@ declare module Details {
     name: string;
     company?: string;
     homepage?: string;
+    category?: string;
     isFirstParty?: boolean;
     isUnrecognized?: boolean;
   }

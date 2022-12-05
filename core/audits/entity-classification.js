@@ -46,6 +46,7 @@ class EntityClassification extends Audit {
         name: entity.name,
         company: entity.company,
         homepage: entity.homepage,
+        category: entity.category,
       };
 
       // Reduce payload size in LHR by omitting where falsy.

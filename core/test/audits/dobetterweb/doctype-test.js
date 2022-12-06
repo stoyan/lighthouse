@@ -90,13 +90,25 @@ describe('DOBETTERWEB: doctype audit', () => {
     expect(auditResult.explanation).toBeDisplayString('Expected systemId to be an empty string');
   });
 
+  it('succeeds when document is regular html doctype', () => {
+    const auditResult = Audit.audit({
+      Doctype: {
+        name: 'html',
+        publicId: '',
+        systemId: '',
+        documentCompatMode: 'CSS1Compat',
+      },
+    });
+    assert.equal(auditResult.score, 1);
+  });
+
   // eslint-disable-next-line max-len
   it('succeeds when document is CSS1Compat, did not detect limit-quirks-mode, and regardless of doctype values seen', () => {
     const auditResult = Audit.audit({
       Doctype: {
-        name: '',
-        publicId: '',
-        systemId: '',
+        name: 'html',
+        publicId: '-//W3C//DTD HTML 4.01 Transitional//EN',
+        systemId: 'http://www.w3.org/TR/html4/loose.dtd',
         documentCompatMode: 'CSS1Compat',
       },
     });

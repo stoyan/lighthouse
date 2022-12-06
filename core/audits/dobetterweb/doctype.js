@@ -109,16 +109,10 @@ class Doctype extends Audit {
 
     // Catch-all for any quirks-mode situations the above checks didn't get.
     // https://github.com/GoogleChrome/lighthouse/issues/10030
-    if (compatMode === 'BackCompat') {
-      return {
-        score: 0,
-        explanation: str_(UIStrings.explanationWrongDoctype),
-      };
-    } else {
-      return {
-        score: 0,
-      };
-    }
+    return {
+      score: 0,
+      explanation: str_(UIStrings.explanationWrongDoctype),
+    };
   }
 }
 

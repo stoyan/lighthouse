@@ -5210,10 +5210,11 @@
     },
     "doctype": {
       "id": "doctype",
-      "title": "Page has the HTML doctype",
+      "title": "Page lacks the HTML doctype, thus triggering quirks-mode",
       "description": "Specifying a doctype prevents the browser from switching to quirks-mode. [Learn more about the doctype declaration](https://developer.chrome.com/docs/lighthouse/best-practices/doctype/).",
-      "score": 1,
-      "scoreDisplayMode": "binary"
+      "score": 0,
+      "scoreDisplayMode": "binary",
+      "explanation": "Document contains a doctype that triggers quirks-mode"
     },
     "charset": {
       "id": "charset",
@@ -6656,7 +6657,7 @@
         }
       ],
       "id": "best-practices",
-      "score": 0.27
+      "score": 0.18
     },
     "seo": {
       "title": "SEO",
@@ -9503,11 +9504,14 @@
       "core/audits/byte-efficiency/legacy-javascript.js | description": [
         "audits[legacy-javascript].description"
       ],
-      "core/audits/dobetterweb/doctype.js | title": [
+      "core/audits/dobetterweb/doctype.js | failureTitle": [
         "audits.doctype.title"
       ],
       "core/audits/dobetterweb/doctype.js | description": [
         "audits.doctype.description"
+      ],
+      "core/audits/dobetterweb/doctype.js | explanationWrongDoctype": [
+        "audits.doctype.explanation"
       ],
       "core/audits/dobetterweb/charset.js | title": [
         "audits.charset.title"

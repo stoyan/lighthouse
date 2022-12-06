@@ -64,9 +64,9 @@ async function legacyNavigation(url, flags = {}, configJSON, userConnection) {
   flags.logLevel = flags.logLevel || 'error';
   log.setLevel(flags.logLevel);
 
-  const config = await generateLegacyConfig(configJSON, flags);
+  const resolvedConfig = await generateLegacyConfig(configJSON, flags);
   const computedCache = new Map();
-  const options = {config, computedCache};
+  const options = {resolvedConfig, computedCache};
   const connection = userConnection || new CriConnection(flags.port, flags.hostname);
 
   // kick off a lighthouse run
@@ -157,8 +157,8 @@ async function auditFlowArtifacts(flowArtifacts, config) {
  * @return {Promise<LH.Config.FRConfig>}
  */
 async function generateConfig(configJson, flags = {}, gatherMode = 'navigation') {
-  const {config} = await initializeConfig(gatherMode, configJson, flags);
-  return config;
+  const {resolvedConfig} = await initializeConfig(gatherMode, configJson, flags);
+  return resolvedConfig;
 }
 
 /**

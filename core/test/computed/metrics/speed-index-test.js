@@ -27,12 +27,12 @@ describe('Metrics: Speed Index', () => {
     expect({
       timing: Math.round(result.timing),
       optimistic: Math.round(result.optimisticEstimate.timeInMs),
-      pessimistic: Math.round(result.pessimisticEstimate.timeInMs),
+      pessimistic: Math.round(result.pessimisticEstimate.timeInMs)
     }).toMatchInlineSnapshot(`
       Object {
         "optimistic": 605,
         "pessimistic": 1661,
-        "timing": 1676,
+        "timing": 1511,
       }
     `);
   });
@@ -63,12 +63,12 @@ describe('Metrics: Speed Index', () => {
     expect({
       timing: Math.round(result.timing),
       optimistic: Math.round(result.optimisticEstimate.timeInMs),
-      pessimistic: Math.round(result.pessimisticEstimate.timeInMs),
+      pessimistic: Math.round(result.pessimisticEstimate.timeInMs)
     }).toMatchInlineSnapshot(`
       Object {
         "optimistic": 575,
         "pessimistic": 633,
-        "timing": 635,
+        "timing": 642,
       }
     `);
   });

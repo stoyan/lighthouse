@@ -5,17 +5,28 @@
 import {assert} from 'chai';
 
 import {expectError} from '../../conductor/events.js';
-import {setDevToolsSettings} from '../../shared/helper.js';
+import {
+  $textContent,
+  getBrowserAndPages,
+  setDevToolsSettings,
+  waitFor,
+  waitForElementWithTextContent,
+} from '../../shared/helper.js';
 import {describe, it} from '../../shared/mocha-extensions.js';
 import {
   clickStartButton,
   getAuditsBreakdown,
+  getServiceWorkerCount,
+  interceptNextFileSave,
   navigateToLighthouseTab,
+  registerServiceWorker,
+  renderHtmlInIframe,
   selectCategories,
   selectDevice,
   setLegacyNavigation,
   setThrottlingMethod,
   setToolbarCheckboxWithText,
+  unregisterAllServiceWorkers,
   waitForResult,
 } from '../helpers/lighthouse-helpers.js';
 
@@ -26,23 +37,29 @@ describe('Navigation', async function() {
   // The tests in this suite are particularly slow
   this.timeout(60_000);
 
+  beforeEach(() => {
+    // https://github.com/GoogleChrome/lighthouse/issues/14572
+    expectError(/Request CacheStorage\.requestCacheNames failed/);
+
+    // https://bugs.chromium.org/p/chromium/issues/detail?id=1357791
+    expectError(/Protocol Error: the message with wrong session id/);
+    expectError(/Protocol Error: the message with wrong session id/);
+    expectError(/Protocol Error: the message with wrong session id/);
+    expectError(/Protocol Error: the message with wrong session id/);
+    expectError(/Protocol Error: the message with wrong session id/);
+  });
+
+  afterEach(async () => {
+    await unregisterAllServiceWorkers();
+  });
+
   const modes = ['legacy', 'FR'];
 
   for (const mode of modes) {
     describe(`in ${mode} mode`, () => {
-      beforeEach(() => {
-        if (mode === 'FR') {
-          // https://bugs.chromium.org/p/chromium/issues/detail?id=1357791
-          expectError(/Protocol Error: the message with wrong session id/);
-          expectError(/Protocol Error: the message with wrong session id/);
-          expectError(/Protocol Error: the message with wrong session id/);
-          expectError(/Protocol Error: the message with wrong session id/);
-          expectError(/Protocol Error: the message with wrong session id/);
-        }
-      });
-
       it('successfully returns a Lighthouse report', async () => {
         await navigateToLighthouseTab('lighthouse/hello.html');
+        await registerServiceWorker();
 
         await setLegacyNavigation(mode === 'legacy');
         await selectCategories([
@@ -54,9 +71,26 @@ describe('Navigation', async function() {
           'lighthouse-plugin-publisher-ads',
         ]);
 
+        let numNavigations = 0;
+        const {target} = await getBrowserAndPages();
+        target.on('framenavigated', () => ++numNavigations);
+
         await clickStartButton();
 
         const {lhr, artifacts, reportEl} = await waitForResult();
+
+        if (mode === 'legacy') {
+          // 1 initial about:blank jump
+          // 1 about:blank jump + 1 navigation for the default pass
+          // 1 about:blank jump + 1 navigation for the offline pass
+          // 1 navigation after auditing to reset state
+          assert.strictEqual(numNavigations, 6);
+        } else {
+          // 1 initial about:blank jump
+          // 1 about:blank jump + 1 navigation for the default pass
+          // 1 navigation after auditing to reset state
+          assert.strictEqual(numNavigations, 4);
+        }
 
         // TODO: Reenable this for 10.0
         // 9.6.x is forked so Lighthouse ToT is still using 9.5.0 as the version.
@@ -99,10 +133,59 @@ describe('Navigation', async function() {
           'meta-description',
         ]);
 
-        const viewTraceText = await reportEl.$eval('.lh-button--trace', viewTraceEl => {
-          return viewTraceEl.textContent;
+        const viewTraceButton = await $textContent('View Original Trace', reportEl);
+        if (!viewTraceButton) {
+          throw new Error('Could not find view trace button');
+        }
+
+        // Test view trace button behavior
+        await viewTraceButton.click();
+        let selectedTab = await waitFor('.tabbed-pane-header-tab.selected[aria-label="Performance"]');
+        let selectedTabText = await selectedTab.evaluate(selectedTabEl => {
+          return selectedTabEl.textContent;
         });
-        assert.strictEqual(viewTraceText, 'View Original Trace');
+        assert.strictEqual(selectedTabText, 'Performance');
+
+        await navigateToLighthouseTab();
+
+        // Test element link behavior
+        const lcpElementAudit = await waitForElementWithTextContent('Largest Contentful Paint element', reportEl);
+        await lcpElementAudit.click();
+        const lcpElementLink = await waitForElementWithTextContent('button');
+        await lcpElementLink.click();
+
+        selectedTab = await waitFor('.tabbed-pane-header-tab.selected[aria-label="Elements"]');
+        selectedTabText = await selectedTab.evaluate(selectedTabEl => {
+          return selectedTabEl.textContent;
+        });
+        assert.strictEqual(selectedTabText, 'Elements');
+
+        const waitForJson = await interceptNextFileSave();
+
+        // For some reason the CDP click command doesn't work here even if the tools menu is open.
+        await reportEl.$eval(
+            'a[data-action="save-json"]:not(.hidden)', saveJsonEl => (saveJsonEl as HTMLElement).click());
+
+        const jsonContent = await waitForJson();
+        assert.strictEqual(jsonContent, JSON.stringify(lhr, null, 2));
+
+        const waitForHtml = await interceptNextFileSave();
+
+        // Converting to ESM changed the shape of the report generator global from Lighthouse.ReportGenerator to Lighthouse.ReportGenerator.ReportGenerator.
+        // TODO: Update the report generator usage once the changes land in DevTools.
+        //
+        // // For some reason the CDP click command doesn't work here even if the tools menu is open.
+        // await reportEl.$eval(
+        //     'a[data-action="save-html"]:not(.hidden)', saveHtmlEl => (saveHtmlEl as HTMLElement).click());
+
+        // const htmlContent = await waitForHtml();
+        // const iframeHandle = await renderHtmlInIframe(htmlContent);
+        // const iframeAuditDivs = await iframeHandle.$$('.lh-audit');
+        // const frontendAuditDivs = await reportEl.$$('.lh-audit');
+        // assert.strictEqual(frontendAuditDivs.length, iframeAuditDivs.length);
+
+        // Ensure service worker was cleared.
+        assert.strictEqual(await getServiceWorkerCount(), 0);
       });
 
       it('successfully returns a Lighthouse report with DevTools throttling', async () => {
@@ -137,18 +220,17 @@ describe('Navigation', async function() {
           'meta-description',
         ]);
 
-        const viewTraceText = await reportEl.$eval('.lh-button--trace', viewTraceEl => {
-          return viewTraceEl.textContent;
-        });
-        assert.strictEqual(viewTraceText, 'View Trace');
+        const viewTraceButton = await $textContent('View Trace', reportEl);
+        assert.ok(viewTraceButton);
       });
 
       it('successfully returns a Lighthouse report when settings changed', async () => {
-        await setDevToolsSettings({language: 'en-XL'});
+        await setDevToolsSettings({language: 'es'});
         await navigateToLighthouseTab('lighthouse/hello.html');
+        await registerServiceWorker();
 
-        await setToolbarCheckboxWithText(mode === 'legacy', 'L̂éĝáĉý n̂áv̂íĝát̂íôń');
-        await setToolbarCheckboxWithText(false, 'Ĉĺêár̂ śt̂ór̂áĝé');
+        await setToolbarCheckboxWithText(mode === 'legacy', 'Navegación antigua');
+        await setToolbarCheckboxWithText(false, 'Borrar almacenamiento');
         await selectCategories(['performance', 'best-practices']);
         await selectDevice('desktop');
 
@@ -179,12 +261,19 @@ describe('Navigation', async function() {
           assert.notInclude(lhr.environment.networkUserAgent, 'Mobile');
         }
 
-        const viewTraceText = await reportEl.$eval('.lh-button--trace', viewTraceEl => {
-          return viewTraceEl.textContent;
-        });
-        assert.strictEqual(viewTraceText, 'V̂íêẃ Ôŕîǵîńâĺ T̂ŕâćê');
+        // This string is not translated in the Lighthouse roll yet.
+        // TODO: Use the translated version once the strings land in DT.
+        const viewTraceButton = await $textContent('View Original Trace', reportEl);
+        assert.ok(viewTraceButton);
 
-        assert.strictEqual(lhr.i18n.rendererFormattedStrings.footerIssue, 'F̂íl̂é âń îśŝúê');
+        const footerIssueText = await reportEl.$eval('.lh-footer__version_issue', footerIssueEl => {
+          return footerIssueEl.textContent;
+        });
+        assert.strictEqual(lhr.i18n.rendererFormattedStrings.footerIssue, 'Notificar un problema');
+        assert.strictEqual(footerIssueText, 'Notificar un problema');
+
+        // Ensure service worker is not cleared because we disable the storage reset.
+        assert.strictEqual(await getServiceWorkerCount(), 1);
       });
     });
   }

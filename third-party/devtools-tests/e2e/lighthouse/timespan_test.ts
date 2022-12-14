@@ -5,15 +5,19 @@
 import {assert} from 'chai';
 
 import {expectError} from '../../conductor/events.js';
-import {getBrowserAndPages} from '../../shared/helper.js';
+import {$textContent, getBrowserAndPages} from '../../shared/helper.js';
 import {describe, it} from '../../shared/mocha-extensions.js';
 import {
   clickStartButton,
   endTimespan,
   getAuditsBreakdown,
+  getServiceWorkerCount,
   navigateToLighthouseTab,
+  registerServiceWorker,
   selectDevice,
   selectMode,
+  setThrottlingMethod,
+  unregisterAllServiceWorkers,
   waitForResult,
   waitForTimespanStarted,
 } from '../helpers/lighthouse-helpers.js';
@@ -26,6 +30,9 @@ describe('Timespan', async function() {
   this.timeout(60_000);
 
   beforeEach(() => {
+    // https://github.com/GoogleChrome/lighthouse/issues/14572
+    expectError(/Request CacheStorage\.requestCacheNames failed/);
+
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1357791
     expectError(/Protocol Error: the message with wrong session id/);
     expectError(/Protocol Error: the message with wrong session id/);
@@ -34,17 +41,27 @@ describe('Timespan', async function() {
     expectError(/Protocol Error: the message with wrong session id/);
   });
 
+  afterEach(async () => {
+    await unregisterAllServiceWorkers();
+  });
+
   it('successfully returns a Lighthouse report for user interactions', async () => {
     await navigateToLighthouseTab('lighthouse/hello.html');
+    await registerServiceWorker();
 
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1364257
     await selectDevice('desktop');
 
     await selectMode('timespan');
+    await setThrottlingMethod('simulate');
+
+    let numNavigations = 0;
+    const {target} = await getBrowserAndPages();
+    target.on('framenavigated', () => ++numNavigations);
+
     await clickStartButton();
     await waitForTimespanStarted();
 
-    const {target} = await getBrowserAndPages();
     await target.click('button');
     await target.click('button');
     await target.click('button');
@@ -53,7 +70,12 @@ describe('Timespan', async function() {
 
     const {lhr, artifacts, reportEl} = await waitForResult();
 
+    assert.strictEqual(numNavigations, 0);
+
     assert.strictEqual(lhr.gatherMode, 'timespan');
+
+    // Even though the dropdown is set to "simulate", throttling method should be overriden to "devtools".
+    assert.strictEqual(lhr.configSettings.throttlingMethod, 'devtools');
 
     const {innerWidth, innerHeight, devicePixelRatio} = artifacts.ViewportDimensions;
     // TODO: Figure out why outerHeight can be different depending on OS
@@ -74,9 +96,12 @@ describe('Timespan', async function() {
 
     // Trace was collected in timespan mode.
     // Timespan mode can only do DevTools throttling so the text will be "View Trace".
-    const viewTraceText = await reportEl.$eval('.lh-button--trace', viewTraceEl => {
-      return viewTraceEl.textContent;
-    });
-    assert.strictEqual(viewTraceText, 'View Trace');
+    const viewTraceButton = await $textContent('View Trace', reportEl);
+    if (!viewTraceButton) {
+      throw new Error('Could not find view trace button');
+    }
+
+    // Ensure service worker is not cleared in timespan mode.
+    assert.strictEqual(await getServiceWorkerCount(), 1);
   });
 });

@@ -20,18 +20,18 @@ import {LanternLargestContentfulPaint} from '../computed/metrics/lantern-largest
 // around for 10s. Meaning, the time delta between processing preconnect a request should be <10s,
 // otherwise it's wasted. We add a 5s margin so we are sure to capture all key requests.
 // @see https://github.com/GoogleChrome/lighthouse/issues/3106#issuecomment-333653747
-const PRECONNECT_SOCKET_MAX_IDLE = 15;
+const PRECONNECT_SOCKET_MAX_IDLE_IN_MS = 15_000;
 
 const IGNORE_THRESHOLD_IN_MS = 50;
 
 const UIStrings = {
   /** Imperative title of a Lighthouse audit that tells the user to connect early to internet domains that will be used to load page resources. Origin is the correct term, however 'domain name' could be used if neccsesary. This is displayed in a list of audit titles that Lighthouse generates. */
   title: 'Preconnect to required origins',
-  /** Description of a Lighthouse audit that tells the user how to connect early to third-party domains that will be used to load page resources. This is displayed after a user expands the section to see more. No character length limits. 'Learn More' becomes link text to additional documentation. */
+  /** Description of a Lighthouse audit that tells the user how to connect early to third-party domains that will be used to load page resources. This is displayed after a user expands the section to see more. No character length limits. The last sentence starting with 'Learn' becomes link text to additional documentation. */
   description:
     'Consider adding `preconnect` or `dns-prefetch` resource hints to establish early ' +
     'connections to important third-party origins. ' +
-    '[Learn how to preconnect to required origins](https://web.dev/uses-rel-preconnect/).',
+    '[Learn how to preconnect to required origins](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/).',
   /**
    * @description A warning message that is shown when the user tried to follow the advice of the audit, but it's not working as expected.
    * @example {https://example.com} securityOrigin
@@ -96,7 +96,7 @@ class UsesRelPreconnectAudit extends Audit {
    * @return {boolean}
    */
   static socketStartTimeIsBelowThreshold(record, mainResource) {
-    return Math.max(0, record.startTime - mainResource.endTime) < PRECONNECT_SOCKET_MAX_IDLE;
+    return Math.max(0, record.startTime - mainResource.endTime) < PRECONNECT_SOCKET_MAX_IDLE_IN_MS;
   }
 
   /**
@@ -150,7 +150,7 @@ class UsesRelPreconnectAudit extends Audit {
           !lcpGraphURLs.has(record.url) ||
           // Filter out all resources where origins are already resolved.
           UsesRelPreconnectAudit.hasAlreadyConnectedToOrigin(record) ||
-          // Make sure the requests are below the PRECONNECT_SOCKET_MAX_IDLE (15s) mark.
+          // Make sure the requests are below the PRECONNECT_SOCKET_MAX_IDLE_IN_MS (15s) mark.
           !UsesRelPreconnectAudit.socketStartTimeIsBelowThreshold(record, mainResource)
         ) {
           return;
@@ -189,8 +189,8 @@ class UsesRelPreconnectAudit extends Audit {
       if (firstRecordOfOrigin.parsedURL.scheme === 'https') connectionTime = connectionTime * 2;
 
       const timeBetweenMainResourceAndDnsStart =
-        firstRecordOfOrigin.startTime * 1000 -
-        mainResource.endTime * 1000 +
+        firstRecordOfOrigin.startTime -
+        mainResource.endTime +
         firstRecordOfOrigin.timing.dnsStart;
 
       const wastedMs = Math.min(connectionTime, timeBetweenMainResourceAndDnsStart);

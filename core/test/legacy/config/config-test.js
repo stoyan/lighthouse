@@ -4,7 +4,7 @@
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
  */
 
-import {strict as assert} from 'assert';
+import assert from 'assert/strict';
 import path from 'path';
 import {createRequire} from 'module';
 
@@ -409,9 +409,6 @@ describe('Config', () => {
     }), function(err) {
       // We're expecting not to find parent class Audit, so only reject on our
       // own custom locate audit error, not the usual MODULE_NOT_FOUND.
-      // TODO(esmodules): Test migration note:
-      //      "custom locate audit error" ??? But this is just a normal Error...
-      //      comment is 4 yr old maybe just stale? we refactoring config require code a lot since then
       return !/locate audit/.test(err) && err.code === 'ERR_MODULE_NOT_FOUND';
     });
   });

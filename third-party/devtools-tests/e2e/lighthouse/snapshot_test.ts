@@ -5,13 +5,16 @@
 import {assert} from 'chai';
 
 import {expectError} from '../../conductor/events.js';
-import {getBrowserAndPages} from '../../shared/helper.js';
+import {$textContent, getBrowserAndPages} from '../../shared/helper.js';
 import {describe, it} from '../../shared/mocha-extensions.js';
 import {
   clickStartButton,
   getAuditsBreakdown,
+  getServiceWorkerCount,
   navigateToLighthouseTab,
+  registerServiceWorker,
   selectMode,
+  unregisterAllServiceWorkers,
   waitForResult,
 } from '../helpers/lighthouse-helpers.js';
 
@@ -23,6 +26,9 @@ describe('Snapshot', async function() {
   this.timeout(60_000);
 
   beforeEach(() => {
+    // https://github.com/GoogleChrome/lighthouse/issues/14572
+    expectError(/Request CacheStorage\.requestCacheNames failed/);
+
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1357791
     expectError(/Protocol Error: the message with wrong session id/);
     expectError(/Protocol Error: the message with wrong session id/);
@@ -31,8 +37,13 @@ describe('Snapshot', async function() {
     expectError(/Protocol Error: the message with wrong session id/);
   });
 
+  afterEach(async () => {
+    await unregisterAllServiceWorkers();
+  });
+
   it('successfully returns a Lighthouse report for the page state', async () => {
     await navigateToLighthouseTab('lighthouse/hello.html');
+    await registerServiceWorker();
 
     const {target} = await getBrowserAndPages();
     await target.evaluate(() => {
@@ -45,10 +56,15 @@ describe('Snapshot', async function() {
       makeTextFieldBtn.click();
     });
 
+    let numNavigations = 0;
+    target.on('framenavigated', () => ++numNavigations);
+
     await selectMode('snapshot');
     await clickStartButton();
 
     const {lhr, artifacts, reportEl} = await waitForResult();
+
+    assert.strictEqual(numNavigations, 0);
 
     assert.strictEqual(lhr.gatherMode, 'snapshot');
 
@@ -75,7 +91,12 @@ describe('Snapshot', async function() {
     assert.strictEqual(lhr.audits['label'].details.items.length, 3);
 
     // No trace was collected in snapshot mode.
-    const viewTrace = await reportEl.$('.lh-button--trace');
+    const viewTrace = await $textContent('View Trace', reportEl);
     assert.strictEqual(viewTrace, null);
+    const viewOriginalTrace = await $textContent('View Original Trace', reportEl);
+    assert.strictEqual(viewOriginalTrace, null);
+
+    // Ensure service worker is not cleared in snapshot mode.
+    assert.strictEqual(await getServiceWorkerCount(), 1);
   });
 });

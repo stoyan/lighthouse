@@ -10,12 +10,12 @@
  * May work on older versions of Chrome.
  *
  * To use with locally built DevTools and Lighthouse, run (assuming devtools at ~/src/devtools/devtools-frontend):
- *    yarn devtools
- *    yarn run-devtools --chrome-flags=--custom-devtools-frontend=file://$HOME/src/devtools/devtools-frontend/out/Default/gen/front_end
+ *    DEVTOOLS_PATH=~/src/devtools/devtools-frontend sh core/scripts/build-devtools.sh
+ *    yarn run-devtools --chrome-flags=--custom-devtools-frontend=file://$HOME/src/devtools/devtools-frontend/out/LighthouseIntegration/gen/front_end
  *
  * Or with the DevTools in .tmp:
  *   bash core/test/devtools-tests/setup.sh
- *   yarn run-devtools --chrome-flags=--custom-devtools-frontend=file://$PWD/.tmp/chromium-web-tests/devtools/devtools-frontend/out/Default/gen/front_end
+ *   yarn run-devtools --chrome-flags=--custom-devtools-frontend=file://$PWD/.tmp/chromium-web-tests/devtools/devtools-frontend/out/LighthouseIntegration/gen/front_end
  *
  * URL list file: yarn run-devtools < path/to/urls.txt
  * Single URL: yarn run-devtools "https://example.com"
@@ -145,6 +145,10 @@ function addSniffer(receiver, methodName, override) {
 }
 
 async function waitForLighthouseReady() {
+  // Undocking later in the function can cause hiccups when Lighthouse enables device emulation.
+  // @ts-expect-error global
+  UI.dockController.setDockSide('undocked');
+
   // @ts-expect-error global
   const viewManager = UI.viewManager || (UI.ViewManager.ViewManager || UI.ViewManager).instance();
   const views = viewManager.views || viewManager._views;
@@ -155,9 +159,6 @@ async function waitForLighthouseReady() {
   const panel = UI.panels.lighthouse || UI.panels.audits;
   const button = panel.contentElement.querySelector('button');
   if (button.disabled) throw new Error('Start button disabled');
-
-  // @ts-expect-error global
-  UI.dockController.setDockSide('undocked');
 
   // Give the main target model a moment to be available.
   // Otherwise, 'SDK.TargetManager.TargetManager.instance().mainTarget()' is null.
@@ -182,6 +183,13 @@ async function waitForLighthouseReady() {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
+  }
+
+  // Ensure the emulation model is ready before Lighthouse starts by enabling device emulation.
+  // @ts-expect-error global
+  const {deviceModeView} = Emulation.AdvancedApp.instance();
+  if (!deviceModeView.isDeviceModeOn()) {
+    deviceModeView.toggleDeviceMode();
   }
 }
 

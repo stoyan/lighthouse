@@ -18,7 +18,7 @@ const UIStrings = {
   title: 'Avoid non-composited animations',
   /** Description of a diagnostic LH audit that shows the user animations that are not composited. Janky means frames may be skipped and the animation will look bad. Acceptable alternatives here might be 'poor', or 'slow'. */
   description: 'Animations which are not composited can be janky and increase CLS. ' +
-    '[Learn how to avoid non-composited animations](https://web.dev/non-composited-animations)',
+    '[Learn how to avoid non-composited animations](https://developer.chrome.com/docs/lighthouse/performance/non-composited-animations/)',
   /** [ICU Syntax] Label identifying the number of animated elements that are not composited. */
   displayValue: `{itemCount, plural,
   =1 {# animated element found}
@@ -173,14 +173,14 @@ class NonCompositedAnimations extends Audit {
     /** @type {LH.Audit.Details.Table['headings']} */
     const headings = [
       /* eslint-disable max-len */
-      {key: 'node', itemType: 'node', subItemsHeading: {key: 'failureReason', itemType: 'text'}, text: str_(i18n.UIStrings.columnElement)},
+      {key: 'node', valueType: 'node', subItemsHeading: {key: 'failureReason', valueType: 'text'}, label: str_(i18n.UIStrings.columnElement)},
       /* eslint-enable max-len */
     ];
 
     if (shouldAddAnimationNameColumn) {
       headings.push(
         /* eslint-disable max-len */
-        {key: null, itemType: 'text', subItemsHeading: {key: 'animation', itemType: 'text'}, text: str_(i18n.UIStrings.columnName)}
+        {key: null, valueType: 'text', subItemsHeading: {key: 'animation', valueType: 'text'}, label: str_(i18n.UIStrings.columnName)}
         /* eslint-enable max-len */
       );
     }
